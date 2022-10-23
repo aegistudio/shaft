@@ -204,7 +204,10 @@ func (g *graph) toposortGenerateGraphNodeID(
 	defer delete(tp.pending, id)
 	params, err := g.toposortGenerateGraphNode(tp, g.nodes[id])
 	if err != nil {
-		return nil, err
+		return nil, &ErrDependency{
+			Node: g.nodes[id].String(id),
+			Err:  err,
+		}
 	}
 	tp.outputs[id] = params
 	return params, nil
@@ -422,7 +425,18 @@ func (g *graph) toposort(
 	for _, invoke := range invokes {
 		_, err := g.toposortGenerateGraphNode(tp, invoke)
 		if err != nil {
-			return nil, err
+			// We would like to be able to display the
+			// name of invoked node here, and we will
+			// simply assign "" as the name if we cannot
+			// retrieve the name.
+			name := ""
+			if invoke.format != nil {
+				name = invoke.format.String()
+			}
+			return nil, &ErrDependency{
+				Node: name,
+				Err:  err,
+			}
 		}
 	}
 	return tp.result, nil

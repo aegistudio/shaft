@@ -143,6 +143,10 @@ func Provide(f interface{}) Option {
 }
 
 // Supply objects to dependency injection.
+//
+// BUG: type information (especially written as type X Y) might
+// be erased when passed through objs, so we should find alternative
+// while providing this interface.
 func Supply(objs ...interface{}) Option {
 	var values []reflect.Value
 	var types []reflect.Type
@@ -206,8 +210,8 @@ func Populate(objs ...interface{}) Option {
 		}
 		spec = append(spec, convertSingle(typ.Elem()))
 	}
-	return core.Supply(values, spec,
-		valuesOp{op: opSupply, types: types})
+	return core.Populate(values, spec,
+		valuesOp{op: opPopulate, types: types})
 }
 
 // Stack a function as constructor.

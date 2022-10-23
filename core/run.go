@@ -22,7 +22,10 @@ func Module(opts ...Option) Option {
 	}
 }
 
-type runAction func(state *runState, input, output []reflect.Value) error
+type runAction struct {
+	format fmt.Stringer
+	exec   func(state *runState, input, output []reflect.Value) error
+}
 
 type runState struct {
 	pending []executionNode
@@ -33,10 +36,18 @@ func (rs *runState) run() error {
 		var node executionNode
 		node, rs.pending = rs.pending[0], rs.pending[1:]
 		if userNode, ok := node.(*graphUserNode); ok {
-			if err := userNode.value.(runAction)(
+			action := userNode.value.(runAction)
+			if err := action.exec(
 				rs, userNode.params.params, userNode.result.params,
 			); err != nil {
-				return err
+				name := ""
+				if action.format != nil {
+					name = action.format.String()
+				}
+				return &ErrExecute{
+					Node: name,
+					Err:  err,
+				}
 			}
 		} else {
 			node.execute()
@@ -72,16 +83,19 @@ func Provide(
 		option.g.insert(graphNode{
 			input:  input,
 			output: output,
-			value: runAction(func(
-				_ *runState, in, out []reflect.Value,
-			) error {
-				output, err := f(in)
-				if err != nil {
-					return err
-				}
-				copy(out, output)
-				return nil
-			}),
+			value: runAction{
+				exec: func(
+					_ *runState, in, out []reflect.Value,
+				) error {
+					output, err := f(in)
+					if err != nil {
+						return err
+					}
+					copy(out, output)
+					return nil
+				},
+				format: format,
+			},
 			format: format,
 		})
 	}
@@ -94,12 +108,15 @@ func Supply(
 	return func(option *option) {
 		option.g.insert(graphNode{
 			output: output,
-			value: runAction(func(
-				_ *runState, _, out []reflect.Value,
-			) error {
-				copy(out, values)
-				return nil
-			}),
+			value: runAction{
+				exec: func(
+					_ *runState, _, out []reflect.Value,
+				) error {
+					copy(out, values)
+					return nil
+				},
+				format: format,
+			},
 			format: format,
 		})
 	}
@@ -114,14 +131,17 @@ func Stack(
 		option.g.insert(graphNode{
 			input:  input,
 			output: output,
-			value: runAction(func(
-				rs *runState, in, out []reflect.Value,
-			) error {
-				return f(func(output []reflect.Value) error {
-					copy(out, output)
-					return rs.run()
-				}, in)
-			}),
+			value: runAction{
+				exec: func(
+					rs *runState, in, out []reflect.Value,
+				) error {
+					return f(func(output []reflect.Value) error {
+						copy(out, output)
+						return rs.run()
+					}, in)
+				},
+				format: format,
+			},
 			format: format,
 		})
 	}
@@ -135,11 +155,14 @@ func Invoke(
 	return func(option *option) {
 		option.consumers = append(option.consumers, graphNode{
 			input: input,
-			value: runAction(func(
-				_ *runState, in, _ []reflect.Value,
-			) error {
-				return f(in)
-			}),
+			value: runAction{
+				exec: func(
+					_ *runState, in, _ []reflect.Value,
+				) error {
+					return f(in)
+				},
+				format: format,
+			},
 			format: format,
 		})
 	}
@@ -152,14 +175,17 @@ func Populate(
 	return func(option *option) {
 		option.consumers = append(option.consumers, graphNode{
 			input: input,
-			value: runAction(func(
-				_ *runState, in, _ []reflect.Value,
-			) error {
-				for i := range in {
-					ptrs[i].Elem().Set(in[i])
-				}
-				return nil
-			}),
+			value: runAction{
+				exec: func(
+					_ *runState, in, _ []reflect.Value,
+				) error {
+					for i := range in {
+						ptrs[i].Elem().Set(in[i])
+					}
+					return nil
+				},
+				format: format,
+			},
 			format: format,
 		})
 	}

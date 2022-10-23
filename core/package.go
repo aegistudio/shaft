@@ -5,6 +5,7 @@
 package core
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -35,4 +36,35 @@ type Spec struct {
 	// provides some required type, but no one provides the
 	// type to decorate.
 	Decorate bool
+}
+
+// ErrDependency indicates there's dependency error on node.
+//
+// Dependency error might be one stacking over another, it
+// indicates a path from current node to the error node.
+type ErrDependency struct {
+	Node string
+	Err  error
+}
+
+func (e *ErrDependency) Error() string {
+	return fmt.Sprintf("node %q dependency error: %v", e.Node, e.Err)
+}
+
+func (e *ErrDependency) Unwrap() error {
+	return e.Err
+}
+
+// ErrExecute indicates error generated while executing node.
+type ErrExecute struct {
+	Node string
+	Err  error
+}
+
+func (e *ErrExecute) Error() string {
+	return fmt.Sprintf("node %q execute error: %v", e.Node, e.Err)
+}
+
+func (e *ErrExecute) Unwrap() error {
+	return e.Err
 }
