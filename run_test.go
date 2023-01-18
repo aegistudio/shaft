@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aegistudio/shaft"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/aegistudio/shaft"
 )
 
 type I interface {
@@ -72,7 +73,8 @@ func TestStandard(t *testing.T) {
 		shaft.Provide(redundantObjectC),
 		shaft.Provide(decorateObjectD),
 		shaft.Module(
-			shaft.Supply(&events, int(123456)),
+			shaft.Supply(&events),
+			shaft.Supply(int(123456)),
 			shaft.Invoke(func(inputs []I, events *[]string) {
 				for _, input := range inputs {
 					input.invoke(events)

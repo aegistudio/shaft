@@ -108,12 +108,9 @@ func (e Executor) RunE(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return core.Run(
-		// XXX: golang is erasing type info if you use supply here, find
-		// alternative ways to preserve type info.
-		//shaft.Supply(CommandObject(cmd), CommandArgs(args), CommandContext(cmd.Context())),
-		shaft.Provide(func() CommandObject { return CommandObject(cmd) }),
-		shaft.Provide(func() CommandArgs { return CommandArgs(args) }),
-		shaft.Provide(func() CommandContext { return CommandContext(cmd.Context()) }),
+		shaft.Supply(CommandObject(cmd), (*CommandObject)(nil)),
+		shaft.Supply(CommandArgs(args), (*CommandArgs)(nil)),
+		shaft.Supply(CommandContext(cmd.Context()), (*CommandContext)(nil)),
 		core.Module(value.options...), core.Option(e),
 	)
 }

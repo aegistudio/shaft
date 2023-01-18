@@ -142,19 +142,45 @@ func Provide(f interface{}) Option {
 	}, in, out, funcOp{op: opProvide, pc: val.Pointer()})
 }
 
-// Supply objects to dependency injection.
+// Supply an objects to dependency injection.
 //
-// BUG: type information (especially written as type X Y) might
-// be erased when passed through objs, so we should find alternative
-// while providing this interface.
-func Supply(objs ...interface{}) Option {
+// The infcs specifies what type would you like the object
+// to be, it might be either be pointer type or slice type,
+// corresponding to the case you want to specify a single
+// object or a group object. Specifying infcs is mandatory
+// when you want to provide the object as instance
+// implementing an interface,  or you will lose the type
+// information when you pass the object as parameter.
+//
+// You might also specify the interface types of this object
+// when supplying, otherwise the actual underlying object
+// will have been supplied to them.
+func Supply(obj interface{}, infcs ...interface{}) Option {
+	value := reflect.ValueOf(obj)
 	var values []reflect.Value
 	var types []reflect.Type
 	var spec []core.Spec
-	for _, obj := range objs {
-		value := reflect.ValueOf(obj)
+	if len(infcs) == 0 {
 		values = append(values, value)
 		typ := value.Type()
+		types = append(types, typ)
+		spec = append(spec, convertSingle(typ))
+	}
+	for _, infc := range infcs {
+		typ := reflect.TypeOf(infc)
+		val := value
+		switch typ.Kind() {
+		case reflect.Ptr:
+			typ = typ.Elem()
+			val = value.Convert(typ)
+		case reflect.Slice:
+			val = reflect.MakeSlice(typ, 0, 1)
+			val = reflect.Append(val, value.Convert(typ.Elem()))
+		default:
+			panic(fmt.Sprintf(
+				"type %T must be pointer or slice", infc))
+		}
+		values = append(values, val)
 		types = append(types, typ)
 		spec = append(spec, convertSingle(typ))
 	}
